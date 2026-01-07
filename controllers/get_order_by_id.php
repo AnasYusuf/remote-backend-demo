@@ -2,6 +2,10 @@
 header('Content-Type: application/json');
 require __DIR__ . '/../config/database.php';
 
+require_once __DIR__ . '/../models/OrderModel.php';
+
+$orderModel = new OrderModel($pdo);
+
 // Get order_id from query parameters
 if (!isset($_GET['order_id'])) {
     http_response_code(400);
@@ -13,9 +17,7 @@ $order_id = intval($_GET['order_id']);
 
 try {
     // Fetch order
-    $stmt = $pdo->prepare("SELECT id AS order_id, user_id, total_amount, status, unique_key FROM orders WHERE id = ?");
-    $stmt->execute([$order_id]);
-    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+    $order = $orderModel->getById($order_id);
 
     if (!$order) {
         http_response_code(404);
@@ -24,9 +26,7 @@ try {
     }
 
     // Fetch items
-    $stmt = $pdo->prepare("SELECT product_id, quantity, price FROM order_items WHERE order_id = ?");
-    $stmt->execute([$order_id]);
-    $order['items'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $order['items'] = $orderModel->getItems($order_id);
 
     echo json_encode(['success' => true, 'order' => $order]);
 

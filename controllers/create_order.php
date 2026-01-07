@@ -2,6 +2,12 @@
 header('Content-Type: application/json');
 require __DIR__ . '/../config/database.php';  // ensure correct path to config.php
 
+require_once __DIR__ . '/../models/OrderModel.php';
+require_once __DIR__ . '/../models/ProductModel.php';
+
+$orderModel = new OrderModel($pdo);
+$productModel = new ProductModel($pdo);
+
 // Decode incoming JSON
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -21,62 +27,38 @@ if (!isset($data['unique_key']) || empty($data['unique_key'])) {
 
 try {
     // Check if order with same unique_key already exists
-    $stmt = $pdo->prepare("SELECT id FROM orders WHERE unique_key = ?");
-    $stmt->execute([$data['unique_key']]);
-    $existingOrder = $stmt->fetch();
-
-    if ($existingOrder) {
-        // Return existing order to ensure idempotency
-        echo json_encode([
-            'success' => true,
-            'order_id' => $existingOrder['id'],
-            'message' => 'Order already exists'
-        ]);
+    if ($orderModel->existsByUniqueKey($data['unique_key'])) {
+        echo json_encode(['error' => 'Order already exists']);
         exit;
     }
 
     // Start transaction
     $pdo->beginTransaction();
 
-    // 1. Calculate total price and validate stock
+    // 1. Calculate total price
     $total = 0;
     foreach ($data['items'] as $item) {
-        $stmt = $pdo->prepare("SELECT price, stock FROM products WHERE id = ?");
-        $stmt->execute([$item['product_id']]);
-        $product = $stmt->fetch();
-
-        if (!$product) {
-            throw new Exception("Product ID {$item['product_id']} not found");
-        }
-
-        // Quantity validation
-        if ($item['quantity'] <= 0 || $item['quantity'] > $product['stock']) {
-            throw new Exception("Invalid quantity for product ID {$item['product_id']}");
-        }
-
+        $product = $productModel->lockRow($item['product_id']);
         $total += $item['quantity'] * $product['price'];
     }
 
     // 2. Insert order with unique_key
-    $stmt = $pdo->prepare(
-        "INSERT INTO orders (user_id, total_amount, status, unique_key) VALUES (?, ?, 'pending', ?)"
-    );
-    $stmt->execute([$data['user_id'], $total, $data['unique_key']]);
-    $order_id = $pdo->lastInsertId();
+    $order_id = $orderModel->createOrder($data['user_id'], $total, $data['unique_key']);
 
-    // 3. Insert order items and update stock
+    // 3. Insert order items and update stock(after checking current stock)
     foreach ($data['items'] as $item) {
-        $stmt = $pdo->prepare("SELECT price FROM products WHERE id = ?");
-        $stmt->execute([$item['product_id']]);
-        $product = $stmt->fetch();
+        $product = $productModel->getById($item['product_id']); 
+        $price = $product['price'];
+        $stock = $product['stock'];
 
-        $stmt = $pdo->prepare(
-            "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)"
-        );
-        $stmt->execute([$order_id, $item['product_id'], $item['quantity'], $item['quantity'] * $product['price']]);
+        $orderModel->insertOrderItem($order_id, $item['product_id'], $item['quantity'], $item['quantity'] * $price);
 
-        $stmt = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
-        $stmt->execute([$item['quantity'], $item['product_id']]);
+        if ($item['quantity'] <= 0 || $item['quantity'] > $stock) {
+            throw new Exception("Invalid quantity for product ID {$item['product_id']}");
+            //echo "Invalid quantity for product ID {$item['product_id']}";
+        }
+        
+        $productModel->updateStock($item['product_id'], $item['quantity']);
     }
 
     $pdo->commit();
