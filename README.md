@@ -249,7 +249,7 @@ The repository includes `postman_collection.json` with:
 ```json
 php -S localhost:8000
 ```
-'4.' Test endpoints using Postman
+`4.` Test endpoints using Postman
 
 ---
 
