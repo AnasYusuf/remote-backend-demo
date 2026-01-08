@@ -246,9 +246,7 @@ The repository includes `postman_collection.json` with:
 `1.` Import the database schema
 `2.` Update database credentials in /config/config.php
 `3.` Start the PHP development server:
-```json
-php -S localhost:8000
-```
+# php -S localhost:8000
 `4.` Test endpoints using Postman
 
 ---
