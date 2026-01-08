@@ -8,39 +8,13 @@
 	},
 	"item": [
 		{
-			"name": "Get Orders",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:8000/controllers/get_orders.php?user_id=1",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "8000",
-					"path": [
-						"controllers",
-						"get_orders.php"
-					],
-					"query": [
-						{
-							"key": "user_id",
-							"value": "1"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
 			"name": "Create Order",
 			"request": {
 				"method": "POST",
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"user_id\": 1,\r\n    \"unique_key\": \"order_2026_01_07_1146\",\r\n    \"items\": [\r\n        {\"product_id\": 1, \"quantity\": 1}//,\r\n        //{\"product_id\": 2, \"quantity\": 2}\r\n    ]\r\n}\r\n",
+					"raw": "{\r\n    \"user_id\": 2,\r\n    \"unique_key\": \"order_2026_01_07_1255\",\r\n    \"items\": [\r\n        {\"product_id\": 1, \"quantity\": 1}//,\r\n        //{\"product_id\": 2, \"quantity\": 2}\r\n    ]\r\n}\r\n",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -62,20 +36,44 @@
 			"response": []
 		},
 		{
-			"name": "Get Order Details by Order ID",
+			"name": "Get User Orders",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8000/controllers/get_order_by_id.php?order_id=1",
+					"raw": "http://localhost:8000/orders?user_id=1",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
 					"port": "8000",
 					"path": [
-						"controllers",
-						"get_order_by_id.php"
+						"orders"
+					],
+					"query": [
+						{
+							"key": "user_id",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Order Details by Order ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/orders?order_id=1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"orders"
 					],
 					"query": [
 						{
@@ -93,15 +91,14 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8000/controllers/get_orders.php?user_id=1&status=pending&limit=10\n",
+					"raw": "http://localhost:8000/orders?user_id=1&status=pending&limit=10\n",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
 					"port": "8000",
 					"path": [
-						"controllers",
-						"get_orders.php"
+						"orders"
 					],
 					"query": [
 						{

@@ -1,21 +1,28 @@
-<?php 
-// Get request info
-$request = rtrim($_SERVER['REQUEST_URI'], '/'); // remove trailing slash
+<?php
 $method = $_SERVER['REQUEST_METHOD'];
+$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Simple routing
-switch (true) {
-    case $request === '/orders' && $method === 'POST':
-        require 'controllers/create_order.php';
-        break;
+if ($uri === '/orders' && $method === 'GET') {
 
-    case $request === '/test' && $method === 'GET':
-        echo json_encode(['status' => 'working']);
-        break;
+    if (isset($_GET['user_id'])) {
+        require 'controllers/get_order_by_userid.php';
+        exit;
+    }
 
-    default:
-        http_response_code(404);
-        echo json_encode(['error' => 'Not found']);
-        break;
+    if (isset($_GET['order_id'])) {
+        require 'controllers/get_order_by_orderid.php';
+        exit;
+    }
+
+    http_response_code(400);
+    echo json_encode(['error' => 'Missing required query parameter']);
+    exit;
 }
-?>
+
+if ($uri === '/orders' && $method === 'POST') {
+    require 'controllers/create_order.php';
+    exit;
+}
+
+http_response_code(404);
+echo json_encode(['error' => 'Route not found']);
