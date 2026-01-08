@@ -243,14 +243,14 @@ The repository includes `postman_collection.json` with:
 ---
 
 ### `How to Run Locally`
-#### 1.   
+#### 1.
 Import the database schema <br>
-#### 2. 
+#### 2.
 Update database credentials in /config/config.php <br>
-#### 3. 
+#### 3.
 Start the PHP development server: <br>
 `php -S localhost:8000` <br>
-#### 4. 
+#### 4.
 Test endpoints using Postman
 
 ---
