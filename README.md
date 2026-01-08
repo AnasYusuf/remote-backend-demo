@@ -1,202 +1,271 @@
-Demo Backend – Orders API
-Project Overview
+# Demo Backend – Orders API
 
-This is a backend demo project built in PHP + MySQL for managing orders and products.
-It demonstrates real-world backend practices suitable for remote work, including:
+## Project Overview
+This is a backend demo project built in **PHP + MySQL** for managing orders and products.  
+It demonstrates **real-world backend practices** suitable for remote work, including:
 
-RESTful API design
+- RESTful API design
+- Transaction-safe operations
+- Idempotency for order creation
+- Row-level locking for stock consistency
+- Error handling with proper HTTP status codes
 
-Transaction-safe operations
+The system is designed to support a **mobile or web frontend**, where admins can manage products and orders, and users can place and view their orders.
 
-Idempotency for order creation
+---
 
-Row-level locking for stock consistency
+## Folder Structure
+/config
+  └── Database configuration
 
-Error handling with proper HTTP status codes
+/controllers
+  └── Business logic & API endpoints
 
-The system is designed to support a mobile or web frontend, where admins can manage products and orders, and users can place and view their orders.
+/models
+  └── Database query layer
+      ├── OrderModel.php
+      └── ProductModel.php
 
-Folder Structure
-/config       → Database configuration
-/controllers  → Business logic & API endpoints
-/models       → Database query layer (OrderModel.php, ProductModel.php)
-/routes       → Endpoint routing (orders.php)
+/routes
+  └── Endpoint routing (orders.php)
+
 .gitignore
-index.php     → Entry point
+
+index.php          → Entry point
+
 README.md
-postman_collection.json  → Postman collection with example requests/responses
 
-Database Schema
-users
+postman_collection.json → Postman collection
 
-id (PK)
+---
 
-name
+## Database Schema
 
-email
+### `users`
+- `id` (PK)
+- `name`
+- `email`
 
-products
+### `products`
+- `id` (PK)
+- `name`
+- `price`
+- `stock`
 
-id (PK)
+### `orders`
+- `order_id` (PK)
+- `user_id` (FK → users.id)
+- `total_amount`
+- `status` (`pending`, `completed`, etc.)
+- `unique_key` (for idempotency)
 
-name
+### `order_items`
+- `id` (PK)
+- `order_id` (FK → orders.order_id)
+- `product_id` (FK → products.id)
+- `quantity`
+- `price`
 
-price
+---
 
-stock
+## API Endpoints
 
-orders
+### 1. Create Order  
+**POST `/orders`** <br>
+**Description:** Creates a new order with full validation, idempotency, and transaction safety. 
 
-order_id (PK)
+**Request Body:**
+```json
+ {
+     "user_id": 1,
+     "unique_key": "abc123xyz",
+     "items": [
+    { "product_id": 1, "quantity": 2 },
+    { "product_id": 2, "quantity": 1 }
+  ]
+ }
+```
 
-user_id (FK → users.id)
-
-total_amount
-
-status (pending, completed, etc.)
-
-unique_key (for idempotency)
-
-order_items
-
-id (PK)
-
-order_id (FK → orders.order_id)
-
-product_id (FK → products.id)
-
-quantity
-
-price
-
-API Endpoints
-1. POST /orders
-
-Description: Create a new order.
-
-Request Body:
-
+**Success Response (200 OK):**
+```json
 {
-    "user_id": 1,
-    "unique_key": "abc123xyz",
-    "items": [
-        {"product_id": 1, "quantity": 2},
-        {"product_id": 2, "quantity": 1}
+  "success": true,
+  "order_id": 5
+}
+```
+
+**Possible Failure Responses:**
+- `Missing or invalid request fields`
+- `409 – Order already exists (duplicate unique key)`
+- `400 – Invalid input / insufficient stock`
+
+**Notes:**
+- `Total amount is calculated server-side`
+- `Idempotency: A unique key is stored with each order. If the same request is retried, the existing order is returned and no duplicate is created.`
+- `Transaction: All related database operations are wrapped in a transaction. If any step fails, the transaction is rolled back.`
+- `Stock Validation: Product quantity must be greater than zero and less than or equal to available stock.`
+- `Stock updates are concurrency-safe`
+
+---
+
+### 2. Get All Orders for a User
+**GET `/orders?user_id={userid}`** <br>
+**Description:** Returns all orders associated with a user.
+
+**Response (200 OK):**
+```json
+ {
+    "success": true,
+    "orders": [
+        {
+            "order_id": 12,
+            "total_amount": "50.00",
+            "status": "pending",
+            "unique_key": "order_2026_01_07_1147",
+            "items": [
+                {
+                    "product_id": 1,
+                    "quantity": 1,
+                    "price": "50.00"
+                }
+            ]
+        },
+        {
+            "order_id": 5,
+            "total_amount": "110.00",
+            "status": "pending",
+            "unique_key": "order_2026_01_07_1145",
+            "items": [
+                {
+                    "product_id": 1,
+                    "quantity": 1,
+                    "price": "50.00"
+                },
+                {
+                    "product_id": 2,
+                    "quantity": 2,
+                    "price": "60.00"
+                }
+            ]
+        }
     ]
 }
+```
 
+---
 
-Success Response (200 OK):
+### 3. Get Single Order Details
+**GET `/orders?order_id={orderid}`** <br>
+**Description:** Fetches full details of a single order, including its items.
 
-{
-    "success": true,
-    "order_id": 5
-}
-
-
-Failure Responses:
-
-Invalid input (missing fields)
-
-Duplicate order (unique key exists)
-
-Insufficient stock
-
-Notes:
-
-Idempotency: Unique key ensures duplicate orders are not created.
-
-Transaction: All inserts/updates are wrapped in a transaction. If any step fails, changes are rolled back.
-
-Stock Validation: Quantity must be >0 and ≤ available stock.
-
-2. GET /orders/:id
-
-Description: Fetch a single order by order_id.
-
-Response:
-
-{
-    "order_id": 5,
+**Response (200 OK):**
+```json
+ {
+    "order_id": 1,
     "user_id": 1,
     "total_amount": 230,
     "status": "pending",
     "items": [
-        {"product_id": 1, "quantity": 2, "price": 100},
-        {"product_id": 2, "quantity": 1, "price": 30}
+        { "product_id": 1, "quantity": 2, "price": 100 },
+        { "product_id": 2, "quantity": 1, "price": 30 }
     ]
 }
+```
 
+**Failure Response (404)**
+```json
+{
+    "error": "Order not found"
+}
+```
 
-Failure Response (404):
+---
 
-{"error": "Order not found"}
+### 4. Get Last 10 orders for a user
+**GET `/orders?user_id=1&status=pending&limit=10`** <br>
+**Description:** Fetches the latest N orders for a user, optionally filtered by status.
 
-3. GET /orders?user_id=1
+### `Query Parameters`
+- `user_id` (required)
+- `status` (optional)
+- `limit` (optional, default 10)
 
-Description: Fetch the latest 10 completed orders for a user.
-
-Response:
-
-[
+**Response (200 OK):**
+```json
+ [
     {
-        "order_id": 4,
-        "total_amount": 230,
-        "status": "completed",
-        "created_at": "2026-01-07 10:12:35"
-    },
-    ...
+        "order_id": 7,
+        "total_amount": 180,
+        "status": "pending",
+        "created_at": "2026-01-08 09:42:10"
+    }
 ]
+```
 
-Validation Rules
+---
 
-user_id must exist in users table
+### `Validation Rules`
+- `user_id` must exist
+- `items` must be a non-empty array
+- Each product must exist
+- Quantity must be > 0 and ≤ available stock
+- Total amount is never trusted from the client
+- Duplicate orders prevented via `unique_key`
 
-items must be an array with at least one product
+---
 
-Product quantity must be >0 and ≤ available stock
+### `Transactions & Concurrency`
+- All order creation logic runs inside a `database transaction`
+- Any failure triggers a `rollback`
+- `Row-level locking` (SELECT ... FOR UPDATE) ensures:
+  - Stock is updated by only one request at a time
+  - Negative stock values are prevented
+- Ensures consistency even under concurrent requests
 
-Total amount is always calculated server-side
+---
 
-Duplicate orders prevented using unique_key
+### `HTTP Status Codes Used`
+| Code | Meaning                            |
+| ---- | ---------------------------------- |
+| 200  | Success                            |
+| 400  | Invalid request / validation error |
+| 404  | Resource not found                 |
+| 409  | Duplicate request (idempotency)    |
 
-Transactions & Concurrency
+---
 
-Database transaction wraps all inserts/updates per order
+### `Postman Collection`
+The repository includes `postman_collection.json` with:
+- Sample requests for all endpoints
+- Success and failure cases
+- Ready-to-import collection for testing
 
-Rollback occurs if any failure happens
+---
 
-Row-level locking ensures stock cannot go negative if multiple users order simultaneously
-
-Postman Collection
-
-postman_collection.json includes:
-
-Example requests/responses for each endpoint
-
-Success and failure cases
-
-Import it in Postman to test the API
-
-Assumptions
-
-Stock cannot be negative
-
-Users can have multiple orders
-
-Orders are processed atomically per request
-
-How to Run
-
-Import the database schema
-
-Update /config/config.php with your DB credentials
-
-Start PHP server:
-
+### `How to Run Locally`
+`1.` Import the database schema
+`2.` Update database credentials in /config/config.php
+`3.` Start the PHP development server:
+```json
 php -S localhost:8000
+```
+'4.' Test endpoints using Postman
 
+---
 
-Use Postman to test endpoints
+### Assumptions
+- Stock cannot be negative
+- One user can have multiple orders
+- Order creation is atomic
+- Read-only APIs do not require transactions
 
-All endpoints are prefixed through index.php with simple routing
+---
+
+### Why This Project Matters
+This demo project reflects `real backend problems:`
+ - Duplicate requests
+ - Concurrent updates
+ - Partial failures
+ - Data integrity under load
+
+It is designed to clearly demonstrate `production-level backend thinking` in interviews.
